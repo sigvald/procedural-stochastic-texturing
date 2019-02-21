@@ -15,10 +15,12 @@
 using System;
 using UnityEngine;
 using System.Collections.Generic;
+using System.IO;
 
 namespace UnityEditor
 {
-	internal class StandardStochasticShaderGUI : ShaderGUI
+    [CanEditMultipleObjects]
+    public class StandardStochasticShaderGUI : ShaderGUI
 	{
 		private enum WorkflowMode
 		{
@@ -195,8 +197,15 @@ namespace UnityEditor
 			// ------------------------------------------------------------------------
 		}
 
-		public override void OnGUI(MaterialEditor materialEditor, MaterialProperty[] props)
+        MaterialProperty[] XCProps = null;
+        MaterialEditor XCmaterialEditor = null;
+        double TimeOfLastOperation = 0f;
+
+
+        public override void OnGUI(MaterialEditor materialEditor, MaterialProperty[] props)
 		{
+
+
 			FindProperties(props); // MaterialProperties can be animated so we do not cache them but fetch them every event to ensure animated values are updated correctly
 			m_MaterialEditor = materialEditor;
 			Material material = materialEditor.target as Material;
@@ -209,9 +218,8 @@ namespace UnityEditor
 				MaterialChanged(material, m_WorkflowMode);
 				m_FirstTimeApply = false;
 			}
-
-			// ----------Procedural Stochastic Texturing Interface------------------
-			EditorGUI.BeginChangeCheck();
+            // ----------Procedural Stochastic Texturing Interface------------------
+            EditorGUI.BeginChangeCheck();
 			layerMask.floatValue = (int)EditorGUILayout.MaskField("Stochastic Inputs", (int)(layerMask.floatValue), layers);
 
 			// Display pre-process time warning if large texture present
@@ -221,7 +229,64 @@ namespace UnityEditor
 			if (GUILayout.Button("Apply"))
 				ApplyUserStochasticInputChoice(material);
 
-			GUILayout.Space(10);
+            if (GUILayout.Button("ApplyToWholeList") || ((PlayerPrefs.GetInt("RepeatStochasticShader") == 1) && EditorApplication.timeSinceStartup - TimeOfLastOperation > 1f))
+            {
+                TimeOfLastOperation = EditorApplication.timeSinceStartup;
+                PlayerPrefs.SetInt("RepeatStochasticShader", 1);
+                Debug.Log("Gonna apply on " + Selection.activeObject.name);
+                Material M = (Material)Selection.activeObject;
+                Texture T = M.GetTexture("_MainTex");
+                albedoMap = FindProperty("_MainTex", props);
+                ApplyUserStochasticInputChoice(M, T);
+
+                string MaterialsPath = "Assets/ProjectAssets/Resources/StochasticMaterials/";
+                string[] files = Directory.GetFiles(MaterialsPath);
+                string NewSelection = "";
+                for (int FC = 0; FC < files.Length; FC++)
+                {
+                    string SimpleName = Path.GetFileNameWithoutExtension(files[FC]);
+                    if (SimpleName == Selection.activeObject.name)
+                    {
+                        if (FC + 2 == files.Length)
+                        {
+                            Debug.Log("reached the end of objects list");
+                            PlayerPrefs.SetInt("RepeatStochasticShader", 0);
+                            return;
+                        }
+                        NewSelection = files[FC + 2];//to skip meta files
+                        break;
+                    }
+                }
+                UnityEngine.Object obj = AssetDatabase.LoadAssetAtPath(NewSelection, typeof(UnityEngine.Object));
+                Selection.activeObject = obj;
+            }
+
+            ////////////////////////////////////////////////////////////////////////////////
+            //string TexturesPath = "Assets/ProjectAssets/Resources/RandomlyGeneratedTextures";
+            //string[] files = Directory.GetFiles(TexturesPath);
+            //int i = 0;
+            //for (int i = 0; i < files.Length; i++)
+            //{
+            //if (Path.GetExtension(files[i]) == ".png")
+
+            //if (GUILayout.Button("ApplyForMultipleObjects"))
+            //{
+            //    foreach (UnityEngine.Object o in Selection.objects)
+            //    {
+            //        Material M = (Material)o;
+            //        Texture T = M.GetTexture("_MainTex");
+            //        albedoMap = FindProperty("_MainTex", props);
+            //        EditorGUI.showMixedValue = true;
+            //        Debug.Log("Before Material is " + M.name + " Texture is " + T.name);
+            //        ApplyUserStochasticInputChoice(M, T);
+            //        Debug.Log("AFter Material is " + M.name + " Texture is " + T.name);
+            //    }
+            //}
+
+            //ApplyUserStochasticInputChoice(material);
+            ////////////////////////////////////////////////////////////////////////////////
+            ///
+            GUILayout.Space(10);
 
 			if (switchedThisFrame == true)
 			{
@@ -234,7 +299,11 @@ namespace UnityEditor
 			// ---------------------------------------------------------------------
 
 			ShaderPropertiesGUI(material);
-		}
+            if (XCProps == null)
+                XCProps = props;
+            if (XCmaterialEditor == null)
+                XCmaterialEditor = materialEditor;
+        }
 
 		public void ShaderPropertiesGUI(Material material)
 		{
@@ -592,7 +661,16 @@ namespace UnityEditor
 			}
 		};
 
-		private void ApplyUserStochasticInputChoice(Material material)
+        public void XCApplyMultipleInput()
+        {
+            FindProperties(XCProps);
+            m_MaterialEditor = XCmaterialEditor;
+            Material material = XCmaterialEditor.target as Material;
+            OnGUI(XCmaterialEditor, XCProps);
+            ApplyUserStochasticInputChoice(material);
+        }
+
+        private void ApplyUserStochasticInputChoice(Material material, Texture CustomTexture = null)
 		{
 			Vector3 colorSpaceVector1 = new Vector3();
 			Vector3 colorSpaceVector2 = new Vector3();
@@ -603,8 +681,12 @@ namespace UnityEditor
 			Texture2D texInvT = new Texture2D(1, 1);
 			TextureFormat inputFormat = TextureFormat.RGB24;
 
-			#region ALBEDO MAP
-			if (InputIsSelected(0) && albedoMap.textureValue != null)
+            //Debug.Log("Texture value " + albedoMap.textureValue + " custom one " + CustomTexture);
+            //if (CustomTexture != null)
+            //    albedoMap.textureValue = CustomTexture;
+            //Debug.Log("Texture value " + albedoMap.textureValue + " custom one " + CustomTexture);
+            #region ALBEDO MAP
+            if (InputIsSelected(0) && albedoMap.textureValue != null)
 			{
 				int stepCounter = 0;
 				int totalSteps = 14;
@@ -614,7 +696,14 @@ namespace UnityEditor
 				// Section 1.4 Improvement: using a decorrelated color space for Albedo RGB
 				TextureData albedoData = TextureToTextureData((Texture2D)albedoMap.textureValue, ref inputFormat);
 				TextureData decorrelated = new TextureData(albedoData);
-				DecorrelateColorSpace(ref albedoData, ref decorrelated, ref colorSpaceVector1, ref colorSpaceVector2, ref colorSpaceVector3, ref colorSpaceOrigin);
+
+                if (CustomTexture != null)
+                {
+                    albedoData = TextureToTextureData((Texture2D)CustomTexture, ref inputFormat);
+                    decorrelated = new TextureData(albedoData);
+                }
+
+                DecorrelateColorSpace(ref albedoData, ref decorrelated, ref colorSpaceVector1, ref colorSpaceVector2, ref colorSpaceVector3, ref colorSpaceOrigin);
 				EditorUtility.DisplayProgressBar("Pre-processing textures for stochastic sampling", inputName, (float)stepCounter++ / totalSteps);
 				ComputeDXTCompressionScalers((Texture2D)albedoMap.textureValue, ref dxtScalers, colorSpaceVector1, colorSpaceVector2, colorSpaceVector3);
 

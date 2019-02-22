@@ -239,7 +239,7 @@ namespace UnityEditor
                 albedoMap = FindProperty("_MainTex", props);
                 ApplyUserStochasticInputChoice(M, T);
 
-                string MaterialsPath = "Assets/ProjectAssets/Resources/StochasticMaterials/";
+                string MaterialsPath = "Assets/ProjectAssets/Graphics/StochasticMaterials/";
                 string[] files = Directory.GetFiles(MaterialsPath);
                 string NewSelection = "";
                 for (int FC = 0; FC < files.Length; FC++)

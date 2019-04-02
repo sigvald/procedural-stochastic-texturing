@@ -229,7 +229,7 @@ namespace UnityEditor
 			if (GUILayout.Button("Apply"))
 				ApplyUserStochasticInputChoice(material);
 
-            if (GUILayout.Button("ApplyToWholeList") || ((PlayerPrefs.GetInt("RepeatStochasticShader") == 1) && EditorApplication.timeSinceStartup - TimeOfLastOperation > 1f))
+            if (GUILayout.Button("ApplyToWholeList") || ((PlayerPrefs.GetInt("RepeatStochasticShader") == 1) && EditorApplication.timeSinceStartup - TimeOfLastOperation > 10f))
             {
                 TimeOfLastOperation = EditorApplication.timeSinceStartup;
                 PlayerPrefs.SetInt("RepeatStochasticShader", 1);
@@ -258,6 +258,7 @@ namespace UnityEditor
                     }
                 }
                 UnityEngine.Object obj = AssetDatabase.LoadAssetAtPath(NewSelection, typeof(UnityEngine.Object));
+                
                 Selection.activeObject = obj;
             }
 

@@ -16,6 +16,8 @@ using System;
 using UnityEngine;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
+using System.Linq;
 
 namespace UnityEditor
 {
@@ -107,8 +109,9 @@ namespace UnityEditor
 		WorkflowMode m_WorkflowMode = WorkflowMode.Specular;
 
 		bool m_FirstTimeApply = true;
+        static List<string> files = null;
 
-		public void FindProperties(MaterialProperty[] props)
+        public void FindProperties(MaterialProperty[] props)
 		{
 			blendMode = FindProperty("_Mode", props);
 			albedoMap = FindProperty("_MainTex", props);
@@ -233,33 +236,50 @@ namespace UnityEditor
             {
                 TimeOfLastOperation = EditorApplication.timeSinceStartup;
                 PlayerPrefs.SetInt("RepeatStochasticShader", 1);
-                Debug.Log("Gonna apply on " + Selection.activeObject.name);
-                Material M = (Material)Selection.activeObject;
-                Texture T = M.GetTexture("_MainTex");
-                albedoMap = FindProperty("_MainTex", props);
-                ApplyUserStochasticInputChoice(M, T);
+                UnityEngine.Object obj;
 
-                string MaterialsPath = "Assets/ProjectAssets/Graphics/StochasticMaterials/";
-                string[] files = Directory.GetFiles(MaterialsPath);
-                string NewSelection = "";
-                for (int FC = 0; FC < files.Length; FC++)
+                if (files == null)
                 {
-                    string SimpleName = Path.GetFileNameWithoutExtension(files[FC]);
-                    if (SimpleName == Selection.activeObject.name)
+                    // First pass, gets the list of the materials.
+                    string MaterialsPath = "Assets/ProjectAssets/Graphics/StochasticMaterials/";
+                    files = new List<string>(Directory.GetFiles(MaterialsPath));
+                    var regexMeta = new Regex(@".*\.mat$");
+                    files = files.Where(f => regexMeta.IsMatch(f)).ToList();    // Removes the .meta files from the list
+                    files.Sort();
+                    obj = AssetDatabase.LoadAssetAtPath(files.First(), typeof(UnityEngine.Object));
+                    Selection.activeObject = obj;
+                }
+                else
+                {
+                    files.RemoveAt(0);      // Removes the file once the textures have been applied.
+                    Debug.Log("Gonna apply on " + Selection.activeObject.name);
+
+                    Material M = (Material)Selection.activeObject;
+                    Texture textureAlbedos = M.GetTexture("_MainTex");
+                    Texture textureDetailAlbedo = M.GetTexture("_DetailAlbedoMap");
+                    Texture textureBumpMap = M.GetTexture("_BumpMap");
+                    albedoMap = FindProperty("_MainTex", props);
+                    detailAlbedoMap = FindProperty("_DetailAlbedoMap", props);
+                    bumpMap = FindProperty("_BumpMap", props);
+                    ApplyUserStochasticInputChoice(M, textureAlbedos);
+                    ApplyUserStochasticInputChoice(M, textureDetailAlbedo);
+                    ApplyUserStochasticInputChoice(M, textureBumpMap);
+
+                    if (files.Any())
                     {
-                        if (FC + 2 == files.Length)
-                        {
-                            Debug.Log("reached the end of objects list");
-                            PlayerPrefs.SetInt("RepeatStochasticShader", 0);
-                            return;
-                        }
-                        NewSelection = files[FC + 2];//to skip meta files
-                        break;
+                        obj = AssetDatabase.LoadAssetAtPath(files.First(), typeof(UnityEngine.Object));
+                        Selection.activeObject = obj;       // Must make the selected object change for the OnGUI method to trigger for each object
                     }
                 }
-                UnityEngine.Object obj = AssetDatabase.LoadAssetAtPath(NewSelection, typeof(UnityEngine.Object));
-                
-                Selection.activeObject = obj;
+
+                if (!files.Any())
+                {
+                    //All the changes have been applied, stops the process.
+                    PlayerPrefs.SetInt("RepeatStochasticShader", 0);
+                    files = null;
+                    Debug.Log("reached the end of objects list");
+                    return;
+                }
             }
 
             ////////////////////////////////////////////////////////////////////////////////

@@ -261,9 +261,9 @@ namespace UnityEditor
                     albedoMap = FindProperty("_MainTex", props);
                     detailAlbedoMap = FindProperty("_DetailAlbedoMap", props);
                     bumpMap = FindProperty("_BumpMap", props);
-                    ApplyUserStochasticInputChoice(M, textureAlbedos);
                     ApplyUserStochasticInputChoice(M, textureDetailAlbedo);
                     ApplyUserStochasticInputChoice(M, textureBumpMap);
+                    ApplyUserStochasticInputChoice(M, textureAlbedos);
 
                     if (files.Any())
                     {

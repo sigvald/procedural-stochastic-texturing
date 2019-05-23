@@ -232,7 +232,7 @@ namespace UnityEditor
 			if (GUILayout.Button("Apply"))
 				ApplyUserStochasticInputChoice(material);
 
-            if (GUILayout.Button("ApplyToWholeList") || ((PlayerPrefs.GetInt("RepeatStochasticShader") == 1) && EditorApplication.timeSinceStartup - TimeOfLastOperation > 10f))
+            if (GUILayout.Button("ApplyToWholeList") || ((PlayerPrefs.GetInt("RepeatStochasticShader") == 1) && EditorApplication.timeSinceStartup - TimeOfLastOperation > 100f))
             {
                 TimeOfLastOperation = EditorApplication.timeSinceStartup;
                 PlayerPrefs.SetInt("RepeatStochasticShader", 1);
@@ -254,16 +254,19 @@ namespace UnityEditor
                     files.RemoveAt(0);      // Removes the file once the textures have been applied.
                     Debug.Log("Gonna apply on " + Selection.activeObject.name);
 
-                    Material M = (Material)Selection.activeObject;
-                    Texture textureAlbedos = M.GetTexture("_MainTex");
-                    Texture textureDetailAlbedo = M.GetTexture("_DetailAlbedoMap");
-                    Texture textureBumpMap = M.GetTexture("_BumpMap");
-                    albedoMap = FindProperty("_MainTex", props);
-                    detailAlbedoMap = FindProperty("_DetailAlbedoMap", props);
-                    bumpMap = FindProperty("_BumpMap", props);
-                    ApplyUserStochasticInputChoice(M, textureDetailAlbedo);
-                    ApplyUserStochasticInputChoice(M, textureBumpMap);
-                    ApplyUserStochasticInputChoice(M, textureAlbedos);
+                    // OLD CODE
+                    //Material M = (Material)Selection.activeObject;
+                    //Texture textureAlbedos = M.GetTexture("_MainTex");
+                    //Texture textureDetailAlbedo = M.GetTexture("_DetailAlbedoMap");
+                    //Texture textureBumpMap = M.GetTexture("_BumpMap");
+                    //albedoMap = FindProperty("_MainTex", props);
+                    //detailAlbedoMap = FindProperty("_DetailAlbedoMap", props);
+                    //bumpMap = FindProperty("_BumpMap", props);
+                    //ApplyUserStochasticInputChoice(M, textureDetailAlbedo);
+                    //ApplyUserStochasticInputChoice(M, textureBumpMap);
+                    //ApplyUserStochasticInputChoice(M, textureAlbedos);
+
+                    ApplyUserStochasticInputChoice(material);
 
                     if (files.Any())
                     {
